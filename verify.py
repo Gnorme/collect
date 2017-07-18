@@ -52,7 +52,7 @@ def GetStreets():
 	streets = c.fetchall()
 	c.close()
 	conn.close()
-	return streets		
+	return streets
 
 display = Display(visible=0,size=(1080,1000))
 display.start()
@@ -85,4 +85,3 @@ with open('fails.txt', 'w', encoding='utf-8') as f:
 	#put street in rue-tokenfield
 	#check dropdown if it exists
 	#if no, add to list
-
