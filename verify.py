@@ -4,7 +4,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver.common.keys import Keys
-from pyvirtualdisplay import Display
 import psycopg2 as pg
 import sys
 
@@ -52,10 +51,8 @@ def GetStreets():
 	streets = c.fetchall()
 	c.close()
 	conn.close()
-	return streets
+	return streets		
 
-display = Display(visible=0,size=(1080,1000))
-display.start()
 v = Collector()
 if sys.argv[1] == 'True':
 	useProxy = True
@@ -85,3 +82,4 @@ with open('fails.txt', 'w', encoding='utf-8') as f:
 	#put street in rue-tokenfield
 	#check dropdown if it exists
 	#if no, add to list
+
