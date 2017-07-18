@@ -1,5 +1,4 @@
 import psycopg2 as pg
-from pyvirtualdisplay import Display
 from datetime import datetime, timezone
 from collect import Collector
 import multiprocessing
@@ -61,8 +60,6 @@ def TimeSinceActive(process):
 		return 0	
 
 if __name__ == '__main__':
-	display = Display(visible=0,size=(1080,1000))
-	display.start()
 	names = []
 	instances = int(sys.argv[2])
 	if sys.argv[1] == 'True':
