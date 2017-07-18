@@ -27,7 +27,7 @@ class Collector():
 		self.useProxy = useProxy
 		self.browser = browser
 		self.StartBrowser()
-		self.number = 1       
+		self.number = 1
 		self.nextNumber = 1
 		self.failInfo = ''
 		self.specificPlace = ''
@@ -57,7 +57,7 @@ class Collector():
 				profile.set_preference("network.proxy.http_port", int(self.proxy[1]))
 				profile.set_preference("network.proxy.ssl", self.proxy[0])
 				profile.set_preference("network.proxy.ssl_port", int(self.proxy[1]))
-			self.driver = webdriver.Firefox(profile, capabilities=capabilities)	
+			self.driver = webdriver.Firefox(profile, capabilities=capabilities,executable_path='geckodriver')
 		if self.browser == 'Chrome':
 			chrome_options = webdriver.ChromeOptions()
 			chrome_options.add_argument("--disable-infobars")
@@ -70,13 +70,16 @@ class Collector():
 				self.GetProxy()
 				chrome_options.add_argument('--proxy-server='+self.proxy[0]+':'+self.proxy[1])
 			self.driver = webdriver.Chrome(chrome_options=chrome_options,desired_capabilities=capabilities)
-		self.driver.set_window_size(1080,1000)			
+		self.driver.set_window_size(1080,1000)
 
 	def Captcha(self, times):
-		try:
-			self.driver.get("https://servicesenligne2.ville.montreal.qc.ca/sel/evalweb/index")
-		except WebDriverException:
-			self.ChangeProxy()
+		if self.useProxy:
+			try:
+				self.driver.get("https://servicesenligne2.ville.montreal.qc.ca/sel/evalweb/index")
+			except WebDriverException:
+				self.ChangeProxy()
+				self.driver.get("https://servicesenligne2.ville.montreal.qc.ca/sel/evalweb/index")
+		else:
 			self.driver.get("https://servicesenligne2.ville.montreal.qc.ca/sel/evalweb/index")
 		for i in range(0,times):
 			try:
@@ -103,7 +106,7 @@ class Collector():
 			except TimeoutException:
 				self.failInfo = 'Timeout on captcha'
 				return False
-			try: 
+			try:
 				self.driver.find_element_by_name("HTML_FORM_FIELD")
 			except NoSuchElementException:
 				return True
@@ -139,7 +142,7 @@ class Collector():
 			words = option.text.split(' ')
 			if road in words and name in words and '('+place+')' in words:
 				places.append(option.text)
-				placeOptions.append(option)	
+				placeOptions.append(option)
 				#break
 		try:
 			if len(self.specificPlace) > 0:
@@ -214,7 +217,7 @@ class Collector():
 				btn.click()
 				return True
 		else:
-			return True		
+			return True
 	def TryNextPlace(self, place, name):
 		st = self.driver.find_element_by_id("rue-tokenfield")
 		st.send_keys(name)
@@ -248,7 +251,7 @@ class Collector():
 		except NoSuchElementException:
 			self.specificPlace = place
 			return True
-			
+
 	def NextStreet(self):
 		conn = self.ConnectDB()
 		c = conn.cursor()
@@ -299,9 +302,9 @@ class Collector():
 			name = street[0]
 		else:
 			road = street[0]
-			name = street[1]	
+			name = street[1]
 
-		self.nextNumber = int(start)	
+		self.nextNumber = int(start)
 		for r in addresses[side]:
 			if self.nextNumber < r[0]:
 				self.nextNumber = r[0]
@@ -310,15 +313,13 @@ class Collector():
 				if self.Collect(self.number, name, road, place):
 					self.count += 1
 					self.UpdateStreet(self.number, side, addresses["Street"], place)
-					if len(self.driver.window_handles) > 10:
-						self.RefreshWindow()
-					elif self.count > 50:
+					if self.count > 50:
 						self.count = 0
 						self.RefreshWindow()
 				else:
 					self.UpdateStreet(self.number, side, addresses["Street"], place)
 					self.ReportFail(self.number, side, addresses["Street"], place)
-					self.nextNumber += 2	
+					self.nextNumber += 2
 		self.specificPlace = ''
 
 	def Collect(self, number, name, road, place):
@@ -403,7 +404,7 @@ class Collector():
 		self.Close()
 		if self.useProxy:
 			self.ReleaseProxy()
-		self.StartBrowser()	
+		self.StartBrowser()
 	def ConnectDB(self):
 		while True:
 			try:
@@ -436,7 +437,7 @@ class Collector():
 		c.execute("UPDATE Proxies set status = 'Working' WHERE ip = (%s) AND port = (%s);", (self.proxy[0], self.proxy[1]))
 		conn.commit()
 		c.close()
-		conn.close()		
+		conn.close()
 	def ChangeProxy(self):
 		self.driver.quit()
 		conn = self.ConnectDB()
@@ -481,9 +482,8 @@ class Collector():
 				try:
 					return int(''.join(filter(lambda x: x.isdigit(), n1)))
 				except ValueError:
-					return 0		
+					return 0
 	def Debug(self):
 		self.driver.get("http://www.google.ca")
 	def Close(self):
-		self.driver.quit()
-
+		self.driver.close()
