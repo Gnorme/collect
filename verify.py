@@ -7,13 +7,7 @@ from selenium.webdriver.common.keys import Keys
 import psycopg2 as pg
 import sys
 
-def CheckStreet(driver, street, place):
-	if street[0][0].isdigit():
-		road = street[1]
-		name = street[0]
-	else:
-		road = street[0]
-		name = street[1]
+def CheckStreet(driver,road, name, place):
 	places = []
 	element_present = EC.visibility_of_element_located((By.ID, 'noCiviq'))
 	try:
@@ -51,7 +45,7 @@ def GetStreets():
 	streets = c.fetchall()
 	c.close()
 	conn.close()
-	return streets		
+	return streets
 
 v = Collector()
 if sys.argv[1] == 'True':
@@ -66,8 +60,14 @@ fails = []
 for entry in streets:
 	try:
 		street = entry[0].split(' ')
+		if street[0][0].isdigit():
+			road = street[1]
+			name = street[0]
+		else:
+			road = street[0]
+			name = entry[entry[0].find(street[1]):]
 		place = entry[1]
-		if CheckStreet(v.driver, street, place) == False:
+		if CheckStreet(v.driver, road, name, place) == False:
 			fails.append(entry)
 	except:
 		continue
@@ -82,4 +82,3 @@ with open('fails.txt', 'w', encoding='utf-8') as f:
 	#put street in rue-tokenfield
 	#check dropdown if it exists
 	#if no, add to list
-
