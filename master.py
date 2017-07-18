@@ -1,4 +1,5 @@
 import psycopg2 as pg
+from pyvirtualdisplay import Display
 from datetime import datetime, timezone
 from collect import Collector
 import multiprocessing
@@ -57,9 +58,11 @@ def TimeSinceActive(process):
 		diff = int((datetime.now() - timestamp).total_seconds())
 		return diff
 	else:
-		return 0	
+		return 0
 
 if __name__ == '__main__':
+	display = Display(visible=0,size=(1000,1080))
+	display.start()
 	names = []
 	instances = int(sys.argv[2])
 	if sys.argv[1] == 'True':
@@ -82,7 +85,7 @@ if __name__ == '__main__':
 			if TimeSinceActive(processes[i].name) > 600:
 				process = Processor(names[i], len(processes) +1,useProxy)
 				processes[i] = process
-				processes[i].start()			
+				processes[i].start()
 
 
 #List of thread names
