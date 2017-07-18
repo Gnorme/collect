@@ -65,7 +65,8 @@ for entry in streets:
 			name = street[0]
 		else:
 			road = street[0]
-			name = entry[entry[0].find(street[1]):]
+			index = entry[0].find(street[1])
+			name = entry[0][index:]
 		place = entry[1]
 		if CheckStreet(v.driver, road, name, place) == False:
 			fails.append(entry)
