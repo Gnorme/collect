@@ -1,4 +1,20 @@
 from selenium import webdriver
+from selenium.webdriver.support.ui import Select
+from pdfminer.pdfparser import PDFParser, PDFDocument
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
+from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
+from pdfminer.converter import PDFPageAggregator
+from pdfminer.layout import LAParams, LTTextBox, LTTextLine
+from itertools import chain
+import sqlite3
+import gc
+import sys
+import objgraph
+import logging
+import os
+import shutil
+from datetime import datetime, timezone
+import psycopg2 as pg
 import time
 
 def Test():
@@ -103,7 +119,86 @@ def SaveData(driver, number, name, road, place):
 		filepath = 'C:\\Users\\Me\\Downloads'
 		oldfilename = max([filepath +"\\"+ f for f in os.listdir(filepath)], key=os.path.getctime)
 		shutil.move(os.path.join(filepath,oldfilename),filename+'_'+year+'.pdf')
-
+def InsertData():
+	directory = 'files/'
+	conn = sqlite3.connect("Data.db")
+	c = conn.cursor()
+	for file in os.listdir(directory):
+		with open(directory+file,'r',encoding='utf-8') as f:
+			data = f.readlines()
+		address = ''
+		for line in data:
+			info = line.split(' : ')
+			try:
+				if 'Adresse :' in line:
+					address = info[1].strip()
+					c.execute('INSERT INTO Present (address) VALUES (?);',(info[1].strip(),))
+					conn.commit()
+				elif 'Arrondissement :' in line:
+					c.execute("UPDATE Present SET borough = (?) WHERE address = (?);",(info[1].strip(), address))
+				elif 'Numéro de lot :' in line:
+					c.execute("UPDATE Present SET lot_number = (?) WHERE address = (?);",(info[1].strip() ,address))
+				elif 'Numéro de matricule :' in line:
+					c.execute("UPDATE Present SET registry_number = (?) WHERE address = (?);",( info[1].strip(),address))
+				elif 'Utilisation prédominante :' in line:
+					c.execute("UPDATE Present SET use = (?) WHERE address = (?);",(info[1].strip() ,address))
+				elif "Numéro d'unité de voisinage :" in line:
+					c.execute("UPDATE Present SET unit_number = (?) WHERE address = (?);",(info[1].strip() ,address))
+				elif 'Numéro de dossier :' in line:
+					c.execute("UPDATE Present SET file_number = (?) WHERE address = (?);",(info[1].strip() ,address))
+				elif 'Nom :' in line:
+					c.execute("SELECT name FROM Present WHERE address = (?);", (address,))
+					name = c.fetchone()
+					if name[0] is not None:
+						c.execute("UPDATE Present SET name = (?) WHERE address = (?);",(name[0]+','+info[1].strip() ,address))
+					else:
+						c.execute("UPDATE Present SET name = (?) WHERE address = (?);",(info[1].strip() ,address))
+						conn.commit()
+				elif 'Statut aux fins' in line:
+					c.execute("UPDATE Present SET status = (?) WHERE address = (?);",( info[1].strip(),address))
+				elif "Date d'inscription" in line:
+					c.execute("UPDATE Present SET date_of_entry = (?) WHERE address = (?);",(info[1].strip() ,address))
+				elif "Conditions particulières d'inscription :" in line:
+					c.execute("UPDATE Present SET special_conditions = (?) WHERE address = (?);",(info[1].strip() ,address))
+				elif 'Exclusif(s) :' in line:
+					c.execute("UPDATE Present SET lot_number = (?) WHERE address = (?);",(info[1].strip() ,address))
+				elif 'Commun(s) :' in line:
+					c.execute("UPDATE Present SET lot_number = (?) WHERE address = (?);",(info[1].strip() ,address))
+				elif 'Mesure frontale :' in line:
+					unit = info[1].find(' m')
+					c.execute("UPDATE Present SET front_measure = (?) WHERE address = (?);",(info[1][:unit].strip(),address))
+				elif 'Superficie :' in line:
+					unit = info[1].find('m2')
+					c.execute("UPDATE Present SET land_area = (?) WHERE address = (?);",(info[1][:unit].strip() ,address))
+				elif "Aire d'" in line:
+					c.execute("UPDATE Present SET floor_area = (?) WHERE address = (?);",(info[1].strip() ,address))
+				if "Année de construction :" in line:
+					c.execute("UPDATE Present SET construction_year = (?) WHERE address = (?);",( info[2].strip(),address))
+				if "Nombre d'étages :" in line:
+					c.execute("UPDATE Present SET floors = (?) WHERE address = (?);",(info[2].strip() ,address))
+				elif 'Genre de construction :' in line:
+					c.execute("UPDATE Present SET construction_type = (?) WHERE address = (?);",( info[1].strip(),address))
+				elif 'Lien physique :' in line:
+					c.execute("UPDATE Present SET physical_link = (?) WHERE address = (?);",(info[1].strip() ,address))
+				elif 'Nombre de locaux non résidentiels :' in line:
+					c.execute("UPDATE Present SET nonresidential_premises = (?) WHERE address = (?);",(info[1].strip() ,address))
+				elif 'Nombre de logements :' in line:
+					c.execute("UPDATE Present SET accomodations = (?) WHERE address = (?);",(info[1].strip() ,address))
+				elif 'Nombre de chambres locatives :' in line:
+					c.execute("UPDATE Present SET rental_rooms = (?) WHERE address = (?);",(info[1].strip() ,address))
+				elif 'Valeur du terrain :' in line:
+					unit = info[1].find('$')
+					c.execute("UPDATE Present SET land_value = (?) WHERE address = (?);",(info[1][:unit].strip() ,address))
+				if "Valeur de l'immeuble au" in line:
+					c.execute("UPDATE Present SET prev_property_value = (?) WHERE address = (?);",(info[2].strip() ,address))
+				elif "Valeur de l'immeuble :" in line:
+					c.execute("UPDATE Present SET property_value = (?) WHERE address = (?);",(info[1].strip() ,address))
+				elif 'Valeur du bâtiment :' in line:
+					c.execute("UPDATE Present SET building_value = (?) WHERE address = (?);",(info[1].strip(),address))
+			except IndexError:
+				continue
+		conn.commit()
+	conn.close()
 def pdftotext():
 	fp = open('example.pdf', 'rb')
 	parser = PDFParser(fp)
@@ -124,6 +219,130 @@ def pdftotext():
 				if isinstance(lt_obj, LTTextBox) or isinstance(lt_obj, LTTextLine):
 					f.write(lt_obj.get_text())
 			break
+def RemoveDupe():
+	proxies = []
+	with open('first.txt','r') as f:
+		for line in f:
+			proxies.append(line)
+
+	filtered = list(set(proxies))
+
+	with open('filtered.txt','w') as f:
+		for line in filtered:
+			f.write(line)
+def CollectSSLProxies():
+	proxies = []
+	driver = webdriver.Chrome()
+	driver.set_window_size(1800,1000)
+	driver.get("https://www.sslproxies.org/")
+	opt = Select(driver.find_element_by_xpath('//*[@id="proxylisttable_length"]/label/select'))
+	opt.select_by_value('80')
+	for i in range(1,81):
+		https = driver.find_element_by_xpath('//*[@id="proxylisttable"]/tbody/tr['+str(i)+']/td[7]').text
+		if https == 'yes':
+			ip = driver.find_element_by_xpath('//*[@id="proxylisttable"]/tbody/tr['+str(i)+']/td[1]').text
+			port = driver.find_element_by_xpath('//*[@id="proxylisttable"]/tbody/tr['+str(i)+']/td[2]').text
+			proxies.append(ip + ':' + port)
+	nextP = driver.find_element_by_xpath('//*[@id="proxylisttable_paginate"]/ul/li[4]/a')
+	nextP.click()
+	for i in range(1,81):
+		try:
+			https = driver.find_element_by_xpath('//*[@id="proxylisttable"]/tbody/tr['+str(i)+']/td[7]').text
+		except NoSuchElementException:
+			break
+		if https == 'yes':
+			ip = driver.find_element_by_xpath('//*[@id="proxylisttable"]/tbody/tr['+str(i)+']/td[1]').text
+			port = driver.find_element_by_xpath('//*[@id="proxylisttable"]/tbody/tr['+str(i)+']/td[2]').text
+			proxies.append(ip + ':' + port)
+
+	with open('proxies.txt','w') as f:
+		for proxy in proxies:
+			f.write(proxy + '\n')
+def CollectUSProxies():
+	proxies = []
+	driver = webdriver.Chrome()
+	driver.set_window_size(1800,1000)
+	driver.get("https://www.us-proxy.org/")
+	opt = Select(driver.find_element_by_xpath('//*[@id="proxylisttable_length"]/label/select'))
+	opt.select_by_value('80')
+	for i in range(1,81):
+		https = driver.find_element_by_xpath('//*[@id="proxylisttable"]/tbody/tr['+str(i)+']/td[7]').text
+		if https == 'yes':
+			ip = driver.find_element_by_xpath('//*[@id="proxylisttable"]/tbody/tr['+str(i)+']/td[1]').text
+			port = driver.find_element_by_xpath('//*[@id="proxylisttable"]/tbody/tr['+str(i)+']/td[2]').text
+			proxies.append(ip + ':' + port)
+	nextP = driver.find_element_by_xpath('//*[@id="proxylisttable_paginate"]/ul/li[4]/a')
+	nextP.click()
+	for i in range(1,81):
+		https = driver.find_element_by_xpath('//*[@id="proxylisttable"]/tbody/tr['+str(i)+']/td[7]').text
+		if https == 'yes':
+			ip = driver.find_element_by_xpath('//*[@id="proxylisttable"]/tbody/tr['+str(i)+']/td[1]').text
+			port = driver.find_element_by_xpath('//*[@id="proxylisttable"]/tbody/tr['+str(i)+']/td[2]').text
+			proxies.append(ip + ':' + port)
+
+	with open('proxies.txt','w') as f:
+		for proxy in proxies:
+			f.write(proxy + '\n')
+def SortProxies():
+	proxies = []
+	with open('out_filtered2.txt','r') as f:
+		for line in f:
+			proxies.append(line.split(':'))
+
+	with open('sorted.txt','a') as f:
+		for proxy in sorted(proxies, key=lambda proxy: int(proxy[2].strip())):
+			f.write(proxy[0]+':'+proxy[1]+'\n')
+
+def RemoveProxies():
+	conn = pg.connect(dbname='Addresses', host='east-post1.cb9zvudjieab.us-east-2.rds.amazonaws.com', port=5432, user='gnorme', password='superhairydick1')
+	c = conn.cursor()
+	c.execute("DELETE FROM Proxies")
+	conn.commit()
+	c.close()
+	conn.close()
+
+def UploadProxies():
+	conn = pg.connect(dbname='Addresses', host='east-post1.cb9zvudjieab.us-east-2.rds.amazonaws.com', port=5432, user='gnorme', password='superhairydick1')
+	c = conn.cursor()
+	with open('out_filtered2.txt','r') as f:
+		for proxy in f:
+			entry = proxy.split(':')
+			c.execute("INSERT INTO Proxies (ip, port, response, status) VALUES (%s, %s, %s, %s);",(entry[0],entry[1],entry[2].strip(),'Working'))
+	conn.commit()
+	c.close()
+	conn.close()
+def RefreshProxyStatus():
+	conn = pg.connect(dbname='Addresses', host='east-post1.cb9zvudjieab.us-east-2.rds.amazonaws.com', port=5432, user='gnorme', password='superhairydick1')
+	c = conn.cursor()
+	c.execute("UPDATE Proxies SET status = 'Working' WHERE status = 'In Use';")
+	conn.commit()
+	c.close()
+	conn.close()
+def DeleteExtras():
+	approved = ['(1)','(2)','(3)', '(4)','(5)','(6)','(7)','(8)']
+	for file in os.listdir('data/'):
+		if any(s in file for s in approved) or ')' not in file:
+			continue
+		else:
+			os.remove('data/' + file)
+def ListActive():
+	conn = pg.connect(dbname='Addresses', host='east-post1.cb9zvudjieab.us-east-2.rds.amazonaws.com', port=5432, user='gnorme', password='superhairydick1')
+	c = conn.cursor()
+	c.execute("SELECT * FROM Montreal WHERE status = 'In Progress'")
+	entries = c.fetchall()
+	for entry in entries:
+		print(entry)
+	c.close()
+	conn.close()
+
+def ListProxies():
+	conn = pg.connect(dbname='Addresses', host='east-post1.cb9zvudjieab.us-east-2.rds.amazonaws.com', port=5432, user='gnorme', password='superhairydick1')
+	c = conn.cursor()
+	c.execute("SELECT * FROM Proxies WHERE status = 'Working' ORDER BY response;")
+	proxies = c.fetchall()
+	c.close()
+	conn.close()
+	print(proxies)
 def LongTest():
 	chrome_options = webdriver.ChromeOptions()
 	prefs = {"download.prompt_for_download": False, "plugins.always_open_pdf_externally": True}
@@ -132,12 +351,6 @@ def LongTest():
 	driver = webdriver.Chrome(chrome_options=chrome_options)
 	driver.get("https://servicesenligne2.ville.montreal.qc.ca/sel/evalweb/index")
 	time.sleep(360)
-
-def CloseTest():
-	driver = webdriver.Firefox()
-	driver.switch_to_window('8')
-	for handle in driver.window_handles:
-		print(handle)
 
 
 
