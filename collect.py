@@ -57,7 +57,7 @@ class Collector():
 				profile.set_preference("network.proxy.http_port", int(self.proxy[1]))
 				profile.set_preference("network.proxy.ssl", self.proxy[0])
 				profile.set_preference("network.proxy.ssl_port", int(self.proxy[1]))
-			self.driver = webdriver.Firefox(profile, capabilities=capabilities)
+			self.driver = webdriver.Firefox(profile, capabilities=capabilities,executable_path='geckodriver')
 		if self.browser == 'Chrome':
 			chrome_options = webdriver.ChromeOptions()
 			chrome_options.add_argument("--disable-infobars")
