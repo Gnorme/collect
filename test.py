@@ -1,23 +1,7 @@
 from selenium import webdriver
-from selenium.webdriver.support.ui import Select
-from pdfminer.pdfparser import PDFParser, PDFDocument
-from selenium.common.exceptions import NoSuchElementException, TimeoutException
-from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
-from pdfminer.converter import PDFPageAggregator
-from pdfminer.layout import LAParams, LTTextBox, LTTextLine
-from itertools import chain
-import sqlite3
-import gc
-import sys
-from pympler import tracker
-import objgraph
-import logging
-import os
-import shutil
-from datetime import datetime, timezone
-import psycopg2 as pg
 import time
 
+<<<<<<< HEAD
 def Test():
 	chromeOptions = webdriver.ChromeOptions()
 	prefs = {"download.prompt_for_download": False, "plugins.always_open_pdf_externally": True}
@@ -141,14 +125,18 @@ def pdftotext():
 				if isinstance(lt_obj, LTTextBox) or isinstance(lt_obj, LTTextLine):
 					f.write(lt_obj.get_text())
 			break
+=======
+>>>>>>> 3944d582c58201ab1d745dff484075424d547111
 def LongTest():
-	chromeOptions = webdriver.ChromeOptions()
+	chrome_options = webdriver.ChromeOptions()
 	prefs = {"download.prompt_for_download": False, "plugins.always_open_pdf_externally": True}
-	chromeOptions.add_experimental_option("prefs",prefs)
-	chrome_options.add_argument('--proxy-server=%s' % '104.236.13.100:8888')
-	driver = webdriver.Chrome(chrome_options=chromeOptions)
+	chrome_options.add_experimental_option("prefs",prefs)
+	chrome_options.add_argument('--proxy-server=%s' % '107.182.236.129:80')
+	driver = webdriver.Chrome(chrome_options=chrome_options)
 	driver.get("https://servicesenligne2.ville.montreal.qc.ca/sel/evalweb/index")
+	time.sleep(360)
 
+<<<<<<< HEAD
 def CollectSSLProxies():
 	proxies = []
 	driver = webdriver.Chrome()
@@ -347,100 +335,23 @@ def Seperate():
 		with open(directory+file,'w') as f:
 			f.write(data)
 
+=======
+def CloseTest():
+	driver = webdriver.Firefox()
+	driver.switch_to_window('8')
+	for handle in driver.window_handles:
+		print(handle)
+>>>>>>> 3944d582c58201ab1d745dff484075424d547111
 
-def InsertData():
-	directory = 'files/'
-	conn = sqlite3.connect("Data.db")
-	c = conn.cursor()
-	for file in os.listdir(directory):
-		with open(directory+file,'r',encoding='utf-8') as f:
-			data = f.readlines()
-		address = ''
-		for line in data:
-			info = line.split(' : ')
-			try:
-				if 'Adresse :' in line:
-					address = info[1].strip()
-					c.execute('INSERT INTO Present (address) VALUES (?);',(info[1].strip(),))
-					conn.commit()
-				elif 'Arrondissement :' in line:
-					c.execute("UPDATE Present SET borough = (?) WHERE address = (?);",(info[1].strip(), address))
-				elif 'Numéro de lot :' in line:
-					c.execute("UPDATE Present SET lot_number = (?) WHERE address = (?);",(info[1].strip() ,address))
-				elif 'Numéro de matricule :' in line:
-					c.execute("UPDATE Present SET registry_number = (?) WHERE address = (?);",( info[1].strip(),address))
-				elif 'Utilisation prédominante :' in line:
-					c.execute("UPDATE Present SET use = (?) WHERE address = (?);",(info[1].strip() ,address))
-				elif "Numéro d'unité de voisinage :" in line:
-					c.execute("UPDATE Present SET unit_number = (?) WHERE address = (?);",(info[1].strip() ,address))
-				elif 'Numéro de dossier :' in line:
-					c.execute("UPDATE Present SET file_number = (?) WHERE address = (?);",(info[1].strip() ,address))
-				elif 'Nom :' in line:
-					c.execute("SELECT name FROM Present WHERE address = (?);", (address,))
-					name = c.fetchone()
-					if name[0] is not None:
-						c.execute("UPDATE Present SET name = (?) WHERE address = (?);",(name[0]+','+info[1].strip() ,address))
-					else:
-						c.execute("UPDATE Present SET name = (?) WHERE address = (?);",(info[1].strip() ,address))
-						conn.commit()
-				elif 'Statut aux fins' in line:
-					c.execute("UPDATE Present SET status = (?) WHERE address = (?);",( info[1].strip(),address))
-				elif "Date d'inscription" in line:
-					c.execute("UPDATE Present SET date_of_entry = (?) WHERE address = (?);",(info[1].strip() ,address))
-				elif "Conditions particulières d'inscription :" in line:
-					c.execute("UPDATE Present SET special_conditions = (?) WHERE address = (?);",(info[1].strip() ,address))
-				elif 'Exclusif(s) :' in line:
-					c.execute("UPDATE Present SET lot_number = (?) WHERE address = (?);",(info[1].strip() ,address))
-				elif 'Commun(s) :' in line:
-					c.execute("UPDATE Present SET lot_number = (?) WHERE address = (?);",(info[1].strip() ,address))
-				elif 'Mesure frontale :' in line:
-					unit = info[1].find(' m')
-					c.execute("UPDATE Present SET front_measure = (?) WHERE address = (?);",(info[1][:unit].strip(),address))
-				elif 'Superficie :' in line:
-					unit = info[1].find('m2')
-					c.execute("UPDATE Present SET land_area = (?) WHERE address = (?);",(info[1][:unit].strip() ,address))
-				elif "Aire d'" in line:
-					c.execute("UPDATE Present SET floor_area = (?) WHERE address = (?);",(info[1].strip() ,address))
-				if "Année de construction :" in line:
-					c.execute("UPDATE Present SET construction_year = (?) WHERE address = (?);",( info[2].strip(),address))
-				if "Nombre d'étages :" in line:
-					c.execute("UPDATE Present SET floors = (?) WHERE address = (?);",(info[2].strip() ,address))
-				elif 'Genre de construction :' in line:
-					c.execute("UPDATE Present SET construction_type = (?) WHERE address = (?);",( info[1].strip(),address))
-				elif 'Lien physique :' in line:
-					c.execute("UPDATE Present SET physical_link = (?) WHERE address = (?);",(info[1].strip() ,address))
-				elif 'Nombre de locaux non résidentiels :' in line:
-					c.execute("UPDATE Present SET nonresidential_premises = (?) WHERE address = (?);",(info[1].strip() ,address))
-				elif 'Nombre de logements :' in line:
-					c.execute("UPDATE Present SET accomodations = (?) WHERE address = (?);",(info[1].strip() ,address))
-				elif 'Nombre de chambres locatives :' in line:
-					c.execute("UPDATE Present SET rental_rooms = (?) WHERE address = (?);",(info[1].strip() ,address))
-				elif 'Valeur du terrain :' in line:
-					unit = info[1].find('$')
-					c.execute("UPDATE Present SET land_value = (?) WHERE address = (?);",(info[1][:unit].strip() ,address))
-				if "Valeur de l'immeuble au" in line:
-					c.execute("UPDATE Present SET prev_property_value = (?) WHERE address = (?);",(info[2].strip() ,address))
-				elif "Valeur de l'immeuble :" in line:
-					c.execute("UPDATE Present SET property_value = (?) WHERE address = (?);",(info[1].strip() ,address))
-				elif 'Valeur du bâtiment :' in line:
-					c.execute("UPDATE Present SET building_value = (?) WHERE address = (?);",(info[1].strip(),address))
-			except IndexError:
-				continue
-		conn.commit()
-	conn.close()
 
-def UpdateProxyList():
-	data = ''
-	proxies = []
-	with open('python-proxy-checker/output/out_filtered2.txt','r') as f:
-		data = f.readlines()
-	for line in data:
-		ip,port,response = line.split(':')
-		proxies.append(ip+':'+port)
-	with open('python-proxy-checker/input/first.txt', 'w') as f:
-		for proxy in proxies:
-			f.write(proxy + '\n')
 
+<<<<<<< HEAD
 ListActive()
 #Collect proxies
 #append to file
+=======
+LongTest()
+#driver = webdriver.Firefox()
+#print(driver.current_window_handle)
+#time.sleep(100)
+>>>>>>> 3944d582c58201ab1d745dff484075424d547111
