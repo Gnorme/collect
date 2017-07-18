@@ -4,17 +4,10 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver.common.keys import Keys
-from pyvirtualdisplay import Display
 import psycopg2 as pg
 import sys
 
-def CheckStreet(driver, street, place):
-	if street[0][0].isdigit():
-		road = street[1]
-		name = street[0]
-	else:
-		road = street[0]
-		name = street[1]
+def CheckStreet(driver,road, name, place):
 	places = []
 	element_present = EC.visibility_of_element_located((By.ID, 'noCiviq'))
 	try:
@@ -54,8 +47,6 @@ def GetStreets():
 	conn.close()
 	return streets
 
-display = Display(visible=0,size=(1080,1000))
-display.start()
 v = Collector()
 if sys.argv[1] == 'True':
 	useProxy = True
@@ -69,8 +60,15 @@ fails = []
 for entry in streets:
 	try:
 		street = entry[0].split(' ')
+		if street[0][0].isdigit():
+			road = street[1]
+			name = street[0]
+		else:
+			road = street[0]
+			index = entry[0].find(street[1])
+			name = entry[0][index:]
 		place = entry[1]
-		if CheckStreet(v.driver, street, place) == False:
+		if CheckStreet(v.driver, road, name, place) == False:
 			fails.append(entry)
 	except:
 		continue
