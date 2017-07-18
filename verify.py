@@ -85,3 +85,4 @@ with open('fails.txt', 'w', encoding='utf-8') as f:
 	#put street in rue-tokenfield
 	#check dropdown if it exists
 	#if no, add to list
+

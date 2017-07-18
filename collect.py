@@ -484,3 +484,4 @@ class Collector():
 		self.driver.get("http://www.google.ca")
 	def Close(self):
 		self.driver.quit()
+
